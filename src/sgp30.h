@@ -127,13 +127,12 @@ void sgp30_free(Sgp30Dev* dev);
  * @param[in]   dev      : Pointer to a Sgp30 instance
  * @param[out]  data     : Pointer to byte array to read data into
  * @param[in]   data_len : Number of bytes to read
- * @param[in]   timeout  : Timeout in useconds
  *
  * @return Success of device read
  * @retval 0 on success
  * @retval < 0 on failure
  */
-int8_t sgp30_read(Sgp30Dev* dev, uint8_t* data, uint32_t data_len, uint32_t timeout);
+int8_t sgp30_read(Sgp30Dev* dev, uint8_t* data, uint32_t data_len);
 
 /**
  * @brief Read a word (16-bit) from sensor and check the CRC (third byte).
@@ -142,26 +141,24 @@ int8_t sgp30_read(Sgp30Dev* dev, uint8_t* data, uint32_t data_len, uint32_t time
  * 
  * @param[in]   dev      : Pointer to Sgp30 instance.
  * @param[out]  data     : Data buffer to read into.
- * @param[in]   timeout  : Timeout in useconds
  * 
  * @return Success of device read
  * @retval 0 on success
  * @retval < 0 on failure
  * */
-int8_t sgp30_read_word(Sgp30Dev* dev, uint8_t* data, uint32_t timeout);
+int8_t sgp30_read_word(Sgp30Dev* dev, uint8_t* data);
 
 /**
  * @brief Read two words (16-bit each) from sensor and check the CRCs (bytes 2 & 5).
  * 
  * @param[in]   dev      : Pointer to Sgp30 instance.
  * @param[out]  data     : Data buffer to read into.
- * @param[in]   timeout  : Timeout in useconds
  * 
  * @return Success of device read
  * @retval 0 on success
  * @retval < 0 on failure
 */
-int8_t sgp30_read_double_word(Sgp30Dev* dev, uint8_t* data, uint32_t timeout);
+int8_t sgp30_read_double_word(Sgp30Dev* dev, uint8_t* data);
 
 /**
  * @brief Write command to SGP30 instance using I2C.
@@ -169,13 +166,12 @@ int8_t sgp30_read_double_word(Sgp30Dev* dev, uint8_t* data, uint32_t timeout);
  * @param[in]  dev      : Pointer to a Sgp30 instance
  * @param[in]  command  : Pointer to byte array containing command bytes
  * @param[in]  data_len : Number of bytes to read
- * @param[in]  timeout  : Timeout in useconds
  *
  * @return Success of device read
  * @retval 0 on success
  * @retval < 0 on failure
  */
-int8_t sgp30_write(Sgp30Dev* dev, const uint8_t* command, uint32_t data_len, uint32_t timeout);
+int8_t sgp30_write(Sgp30Dev* dev, const uint8_t* command, uint32_t data_len);
 
 /**
  * @brief Write command to SGP30 instance and receive output.
@@ -191,18 +187,15 @@ int8_t sgp30_write(Sgp30Dev* dev, const uint8_t* command, uint32_t data_len, uin
  * @param[in,out]  data        : Pointer to byte array containing command bytes
  * @param[in]      command_len : Length of the command being sent
  * @param[in]      data_len    : Number of bytes to read after sending the command
- * @param[in]      timeout     : Timeout in useconds
  *
  * @return Success of device read
  * @retval 0 on success
  * @retval < 0 on failure
  */
-int8_t sgp30_trx(
-    Sgp30Dev* dev,
-    uint8_t* data,
-    uint32_t command_len,
-    uint32_t data_len,
-    uint32_t timeout);
+int8_t sgp30_trx(Sgp30Dev* dev,
+                 uint8_t* data,
+                 uint32_t command_len,
+                 uint32_t data_len);
 
 /**
  * @brief Get ID from the chip.

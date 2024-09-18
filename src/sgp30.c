@@ -43,6 +43,12 @@
 
 #include "sgp30.h"
 
+#ifdef __KERNEL__
+#include <linux/string.h>
+#else
+#include <string.h>
+#endif
+
 #define TAG "sgp30"
 
 /**
@@ -53,7 +59,7 @@
 static int8_t sgp30_null_ptr_check(const Sgp30Dev *dev);
 
 /* Internal API to delay for period useconds */
-static int8_t sgp30_delay_us(const Sgp30Dev *dev, uint32_t period);
+static int8_t sgp30_delay_us(Sgp30Dev *dev, uint32_t period);
 
 /**
  * public API
@@ -64,7 +70,7 @@ Sgp30Dev* sgp30_alloc(void)
 {
     Sgp30Dev *dev = malloc(sizeof(Sgp30Dev));
     if (dev == NULL) {
-        return SGP30_E_NOMEM;
+        return NULL;
     }
     dev->i2c_addr = SGP30_I2C_ADDR;
     dev->i2c_addr_read = SGP30_I2C_ADDR_READ;
@@ -146,7 +152,7 @@ uint8_t sgp30_init(Sgp30Dev *dev)
     }
 
     // chip takes a max. of 0.6ms to start after power up
-    sgp30_delay_us(600, dev);
+    sgp30_delay_us(dev, 600);
     if(sgp30_read_chip_id(dev) < 0) {
         return SGP30_E_DEV_NOT_FOUND;
     }
@@ -158,7 +164,7 @@ uint8_t sgp30_init(Sgp30Dev *dev)
     uint8_t data[2];
     data[0] = (uint8_t)((SGP30_INIT_AIR_QUALITY_CMD & 0xFF00) >> 8);
     data[1] = (uint8_t)(SGP30_INIT_AIR_QUALITY_CMD & 0x00FF);
-    if(sgp30_write(dev, data, SGP30_INIT_AIR_QUALITY_CMD_LEN, SGP30_INIT_AIR_QUALITY_MAX_MS) < 0) {
+    if(sgp30_write(dev, data, SGP30_INIT_AIR_QUALITY_CMD_LEN) < 0) {
         return SGP30_E_WRITE;
     }
 
@@ -189,13 +195,12 @@ void sgp30_free(Sgp30Dev *dev)
  * @param[in]   dev      : Pointer to a Sgp30 instance
  * @param[out]  data     : Pointer to byte array to read data into
  * @param[in]   data_len : Number of bytes to read
- * @param[in]   timeout  : Timeout in useconds
  *
  * @return Success of device read
  * @retval 0 on success
  * @retval < 0 on failure
  */
-int8_t sgp30_read(Sgp30Dev *dev, uint8_t *data, uint32_t data_len, uint32_t timeout)
+int8_t sgp30_read(Sgp30Dev *dev, uint8_t *data, uint32_t data_len)
 {
     if ((sgp30_null_ptr_check(dev) == SGP30_E_NULL_PTR) || (data == NULL)) {
         return SGP30_E_NULL_PTR;
@@ -210,16 +215,15 @@ int8_t sgp30_read(Sgp30Dev *dev, uint8_t *data, uint32_t data_len, uint32_t time
  * 
  * @param[in]   dev     : Pointer to Sgp30 instance.
  * @param[out]  data    : Data buffer to read into.
- * @param[in]   timeout : Timeout in useconds
  * 
  * @return True if read succeeds and CRC matches, false on failure.
 */
-int8_t sgp30_read_word(Sgp30Dev *dev, uint8_t *data, uint32_t timeout)
+int8_t sgp30_read_word(Sgp30Dev *dev, uint8_t *data)
 {
     if ((sgp30_null_ptr_check(dev) == SGP30_E_NULL_PTR) || (data == NULL)) {
         return SGP30_E_NULL_PTR;
     }
-    if(sgp30_read(dev, data, SGP30_WORD_LEN + 1, timeout) != SGP30_OK) {
+    if(sgp30_read(dev, data, SGP30_WORD_LEN + 1) != SGP30_OK) {
         return SGP30_E_READ;
     }
     uint8_t crc = sgp30_generate_crc(data, SGP30_WORD_LEN);
@@ -234,16 +238,15 @@ int8_t sgp30_read_word(Sgp30Dev *dev, uint8_t *data, uint32_t timeout)
  * 
  * @param[in]   dev     : Pointer to Sgp30 instance.
  * @param[out]  data    : Data buffer to read into.
- * @param[in]   timeout : Timeout in useconds
  * 
  * @return True if read succeeds and CRC matches, false on failure.
 */
-int8_t sgp30_read_double_word(Sgp30Dev *dev, uint8_t *data, uint32_t timeout)
+int8_t sgp30_read_double_word(Sgp30Dev *dev, uint8_t *data)
 {
     if ((sgp30_null_ptr_check(dev) == SGP30_E_NULL_PTR) || (data == NULL)) {
         return SGP30_E_NULL_PTR;
     }
-    if(sgp30_read(dev, data, (SGP30_WORD_LEN * 2) + 2, timeout) < 0) {
+    if(sgp30_read(dev, data, (SGP30_WORD_LEN * 2) + 2) < 0) {
         return SGP30_E_READ;
     }
     uint8_t crc = sgp30_generate_crc(data, SGP30_WORD_LEN);
@@ -263,11 +266,10 @@ int8_t sgp30_read_double_word(Sgp30Dev *dev, uint8_t *data, uint32_t timeout)
  * @param[in]  dev      : Pointer to a Sgp30 instance
  * @param[in]  command  : Pointer to byte array containing command bytes
  * @param[in]  data_len : Number of bytes to read
- * @param[in]  timeout  : Timeout in useconds
  *
  * @return True on success, false on failure.
  */
-int8_t sgp30_write(Sgp30Dev *dev, const uint8_t *command, uint32_t data_len, uint32_t timeout)
+int8_t sgp30_write(Sgp30Dev *dev, const uint8_t *command, uint32_t data_len)
 {
     if ((sgp30_null_ptr_check(dev) == SGP30_E_NULL_PTR) || (command == NULL)) {
         return SGP30_E_NULL_PTR;
@@ -288,7 +290,6 @@ int8_t sgp30_write(Sgp30Dev *dev, const uint8_t *command, uint32_t data_len, uin
  * @param[in,out]  data        : Pointer to byte array containing command bytes
  * @param[in]      command_len : Length of the command being sent
  * @param[in]      data_len    : Number of bytes to read after sending the command
- * @param[in]      timeout     : Timeout in useconds
  *
  * @return True on success, false on failure.
  */
@@ -296,13 +297,12 @@ int8_t sgp30_trx(
     Sgp30Dev *dev,
     uint8_t *data,
     uint32_t command_len,
-    uint32_t data_len,
-    uint32_t timeout)
+    uint32_t data_len)
 {
     if ((sgp30_null_ptr_check(dev) == SGP30_E_NULL_PTR) || (data == NULL)) {
         return SGP30_E_NULL_PTR;
     }
-    int8_t status = sgp30_write(dev, data, command_len, timeout);
+    int8_t status = sgp30_write(dev, data, command_len);
     if (status != SGP30_OK) {
         return status;
     }
@@ -311,7 +311,7 @@ int8_t sgp30_trx(
 
     // 0.5ms delay
     sgp30_delay_us(dev, 1000000);
-    status = sgp30_read(dev, data, data_len, timeout);
+    status = sgp30_read(dev, data, data_len);
     return status;
 }
 
@@ -341,8 +341,7 @@ int8_t sgp30_read_chip_id(Sgp30Dev *dev)
            dev,
            data,
            SPG30_GET_SERIAL_ID_CMD_LEN,
-           SGP30_GET_SERIAL_ID_RESP_LEN,
-           SGP30_DEFAULT_TIMEOUT) != SGP30_OK) {
+           SGP30_GET_SERIAL_ID_RESP_LEN) != SGP30_OK) {
         return SGP30_E_TRX;
     }
     uint8_t crc = sgp30_generate_crc(&data[0], 2);
@@ -405,9 +404,9 @@ int8_t sgp30_measure_test(Sgp30Dev *dev)
     data[0] = (uint8_t)((SGP30_MEASURE_TEST_CMD & 0xFF00) >> 8);
     data[1] = (uint8_t)(SGP30_MEASURE_TEST_CMD & 0x00FF);
 
-    sgp30_write(dev, data, SGP30_MEASURE_TEST_CMD_LEN, SGP30_DEFAULT_TIMEOUT);
+    sgp30_write(dev, data, SGP30_MEASURE_TEST_CMD_LEN);
     sgp30_delay_us(dev, SGP30_MEASURE_TEST_MAX_MS);
-    sgp30_read(dev, resp, SGP30_MEASURE_TEST_RESP_LEN, SGP30_DEFAULT_TIMEOUT);
+    sgp30_read(dev, resp, SGP30_MEASURE_TEST_RESP_LEN);
 
     uint8_t test_byte0 = (uint8_t)((SGP30_MEASURE_TEST_PASS_VAL & 0xFF00) >> 8);
     uint8_t test_byte1 = (uint8_t)(SGP30_MEASURE_TEST_PASS_VAL & 0x00FF);
@@ -436,11 +435,11 @@ int8_t sgp30_get_baseline(Sgp30Dev *dev, uint8_t *data)
     }
     data[0] = SGP30_GET_BASELINE_CMD_BYTE_1;
     data[1] = SGP30_GET_BASELINE_CMD_BYTE_2;
-    if(sgp30_write(dev, data, SGP30_GET_BASELINE_CMD_LEN, SGP30_GET_BASELINE_CMD_MAX_MS) < 0) {
+    if(sgp30_write(dev, data, SGP30_GET_BASELINE_CMD_LEN) < 0) {
         return SGP30_E_WRITE;
     }
     sgp30_delay_us(dev, 500);
-    if(sgp30_read_double_word(dev, data, 10) < 0) {
+    if(sgp30_read_double_word(dev, data) < 0) {
         return SGP30_E_READ;
     }
     return SGP30_OK;
@@ -470,8 +469,7 @@ int8_t sgp30_measure_air_quality(Sgp30Dev *dev, Sgp30DevReadings *readings)
            dev,
            data,
            SGP30_MEASURE_AIR_QUALITY_CMD_LEN,
-           SGP30_MEASURE_AIR_QUALITY_RESP_LEN,
-           SGP30_MEASURE_AIR_QUALITY_MAX_MS) < 0) {
+           SGP30_MEASURE_AIR_QUALITY_RESP_LEN) < 0) {
         readings->co2_tvoc = 0xFFFFFFFF;
         return SGP30_E_TRX;
     }
@@ -512,10 +510,12 @@ uint8_t sgp30_soft_reset(Sgp30Dev *dev)
     if(sgp30_null_ptr_check(dev) == SGP30_E_NULL_PTR) {
         return SGP30_E_NULL_PTR;
     }
+    uint8_t data[2] = { 0 };
+    data[0] = (uint8_t)((SGP30_SOFT_REST_CMD_GEN_CALL_ADDR & 0xFF00) >> 8);
+    data[1] = (uint8_t)((SGP30_SOFT_REST_CMD_GEN_CALL_ADDR) & 0x00FF);
     uint8_t status = sgp30_write(dev,
-                                 SGP30_SOFT_REST_CMD_GEN_CALL_ADDR,
-                                 SGP30_SOFT_REST_CMD_GEN_CALL_ADDR_LEN,
-                                 SGP30_DEFAULT_TIMEOUT);
+                                 data,
+                                 SGP30_SOFT_REST_CMD_GEN_CALL_ADDR_LEN);
     return status;
 }
 
@@ -568,7 +568,7 @@ static int8_t sgp30_null_ptr_check(const Sgp30Dev *dev)
 }
 
 /* Internal API function to delay for period useconds */
-static int8_t sgp30_delay_us(const Sgp30Dev *dev, uint32_t period)
+static int8_t sgp30_delay_us(Sgp30Dev *dev, uint32_t period)
 {
     if (sgp30_null_ptr_check(dev) == SGP30_E_NULL_PTR) {
         return SGP30_E_NULL_PTR;
