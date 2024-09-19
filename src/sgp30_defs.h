@@ -188,6 +188,10 @@
 /* TRX - transmit then receive */
 #define SGP30_E_TRX                                 INT8_C(-10)
 
+/* Function pointer setter functions may use this */
+#define SGP30_E_NULL_FPTR                           INT8_C(-11)
+#define SGP30_E_NULL_DATA_PTR                       INT8_C(-12)
+
 /**
  * @brief Interface return types and definitions
  */

@@ -56,10 +56,10 @@
  */
 
 /* Internal API to check SGP30 for NULL pointers */
-static int8_t sgp30_null_ptr_check(const Sgp30Dev *dev);
+static int8_t null_ptr_check(const Sgp30Dev *dev);
 
 /* Internal API to delay for period useconds */
-static int8_t sgp30_delay_us(Sgp30Dev *dev, uint32_t period);
+static int8_t delay_us(Sgp30Dev *dev, uint32_t period);
 
 /**
  * public API
@@ -88,10 +88,13 @@ Sgp30Dev* sgp30_alloc(void)
  * @retval 0 on success
  * @retval < 0 on failure
  */
-uint8_t sgp30_set_read_fptr(Sgp30Dev *dev, sgp30_read_fptr_t fptr)
+int8_t sgp30_set_read_fptr(Sgp30Dev *dev, sgp30_read_fptr_t fptr)
 {
-    if (sgp30_null_ptr_check(dev) == SGP30_E_NULL_PTR || fptr == NULL) {
+    if (dev == NULL) {
         return SGP30_E_NULL_PTR;
+    }
+    if (fptr == NULL) {
+        return SGP30_E_NULL_FPTR;
     }
     dev->read = fptr;
     return SGP30_OK;
@@ -107,10 +110,13 @@ uint8_t sgp30_set_read_fptr(Sgp30Dev *dev, sgp30_read_fptr_t fptr)
  * @retval 0 on success
  * @retval < 0 on failure
  */
-uint8_t sgp30_set_write_fptr(Sgp30Dev *dev, sgp30_write_fptr_t fptr)
+int8_t sgp30_set_write_fptr(Sgp30Dev *dev, sgp30_write_fptr_t fptr)
 {
-    if (sgp30_null_ptr_check(dev) == SGP30_E_NULL_PTR || fptr == NULL) {
+    if (dev == NULL) {
         return SGP30_E_NULL_PTR;
+    }
+    if (fptr == NULL) {
+        return SGP30_E_NULL_FPTR;
     }
     dev->write = fptr;
     return SGP30_OK;
@@ -126,10 +132,13 @@ uint8_t sgp30_set_write_fptr(Sgp30Dev *dev, sgp30_write_fptr_t fptr)
  * @retval 0 on success
  * @retval < 0 on failure
  */
-uint8_t sgp30_set_delay_us_fptr(Sgp30Dev *dev, sgp30_delay_us_fptr_t fptr)
+int8_t sgp30_set_delay_us_fptr(Sgp30Dev *dev, sgp30_delay_us_fptr_t fptr)
 {
-    if (sgp30_null_ptr_check(dev) == SGP30_E_NULL_PTR || fptr == NULL) {
+    if (dev == NULL) {
         return SGP30_E_NULL_PTR;
+    }
+    if (fptr == NULL) {
+        return SGP30_E_NULL_FPTR;
     }
     dev->delay_us = fptr;
     return SGP30_OK;
@@ -145,14 +154,15 @@ uint8_t sgp30_set_delay_us_fptr(Sgp30Dev *dev, sgp30_delay_us_fptr_t fptr)
  * @retval 0 on success
  * @retval < 0 on failure
  */
-uint8_t sgp30_init(Sgp30Dev *dev)
+int8_t sgp30_init(Sgp30Dev *dev)
 {
-    if (dev == NULL) {
-        return SGP30_E_NULL_PTR;
+    int8_t status = null_ptr_check(dev);
+    if(status != SGP30_OK) {
+        return status;
     }
 
     // chip takes a max. of 0.6ms to start after power up
-    sgp30_delay_us(dev, 600);
+    delay_us(dev, 600);
     if(sgp30_read_chip_id(dev) < 0) {
         return SGP30_E_DEV_NOT_FOUND;
     }
@@ -178,13 +188,13 @@ uint8_t sgp30_init(Sgp30Dev *dev)
  *
  * @return Void.
  */
-void sgp30_free(Sgp30Dev *dev)
+void sgp30_free(Sgp30Dev **dev)
 {
-    if (sgp30_null_ptr_check(dev) == SGP30_E_NULL_PTR) {
+    if (*dev == NULL) {
         return;
     }
-    dev->intf_ptr = NULL;
-    free(dev);
+    free(*dev);
+    *dev = NULL;
 }
 
 /**
@@ -202,8 +212,12 @@ void sgp30_free(Sgp30Dev *dev)
  */
 int8_t sgp30_read(Sgp30Dev *dev, uint8_t *data, uint32_t data_len)
 {
-    if ((sgp30_null_ptr_check(dev) == SGP30_E_NULL_PTR) || (data == NULL)) {
-        return SGP30_E_NULL_PTR;
+    int8_t status = null_ptr_check(dev);
+    if (status != SGP30_OK) {
+        return status;
+    }
+    if (data == NULL) {
+        return SGP30_E_NULL_DATA_PTR;
     }
     return dev->read(dev->i2c_addr_read, data, data_len, dev->intf_ptr);
 }
@@ -220,17 +234,22 @@ int8_t sgp30_read(Sgp30Dev *dev, uint8_t *data, uint32_t data_len)
 */
 int8_t sgp30_read_word(Sgp30Dev *dev, uint8_t *data)
 {
-    if ((sgp30_null_ptr_check(dev) == SGP30_E_NULL_PTR) || (data == NULL)) {
-        return SGP30_E_NULL_PTR;
+    int8_t status = null_ptr_check(dev);
+    if (status != SGP30_OK) {
+        return status;
     }
-    if(sgp30_read(dev, data, SGP30_WORD_LEN + 1) != SGP30_OK) {
-        return SGP30_E_READ;
+    if (data == NULL) {
+        return SGP30_E_NULL_DATA_PTR;
+    }
+    status = sgp30_read(dev, data, SGP30_WORD_LEN + 1);
+    if(status != SGP30_OK) {
+        return status;
     }
     uint8_t crc = sgp30_generate_crc(data, SGP30_WORD_LEN);
     if(crc != data[2]) {
         return SGP30_E_CRC_1;
     }
-    return SGP30_OK;
+    return status;
 }
 
 /**
@@ -243,11 +262,16 @@ int8_t sgp30_read_word(Sgp30Dev *dev, uint8_t *data)
 */
 int8_t sgp30_read_double_word(Sgp30Dev *dev, uint8_t *data)
 {
-    if ((sgp30_null_ptr_check(dev) == SGP30_E_NULL_PTR) || (data == NULL)) {
-        return SGP30_E_NULL_PTR;
+    int8_t status = null_ptr_check(dev);
+    if (status != SGP30_OK) {
+        return status;
     }
-    if(sgp30_read(dev, data, (SGP30_WORD_LEN * 2) + 2) < 0) {
-        return SGP30_E_READ;
+    if (data == NULL) {
+        return SGP30_E_NULL_DATA_PTR;
+    }
+    status = sgp30_read(dev, data, (SGP30_WORD_LEN * 2) + 2);
+    if (status != SGP30_OK) {
+        return status;
     }
     uint8_t crc = sgp30_generate_crc(data, SGP30_WORD_LEN);
     if(crc != data[2]) {
@@ -257,7 +281,7 @@ int8_t sgp30_read_double_word(Sgp30Dev *dev, uint8_t *data)
     if(crc != data[5]) {
         return SGP30_E_CRC_2;
     }
-    return SGP30_OK;
+    return status;
 }
 
 /**
@@ -271,8 +295,12 @@ int8_t sgp30_read_double_word(Sgp30Dev *dev, uint8_t *data)
  */
 int8_t sgp30_write(Sgp30Dev *dev, const uint8_t *command, uint32_t data_len)
 {
-    if ((sgp30_null_ptr_check(dev) == SGP30_E_NULL_PTR) || (command == NULL)) {
-        return SGP30_E_NULL_PTR;
+    int8_t status = null_ptr_check(dev);
+    if (status != SGP30_OK) {
+        return status;
+    }
+    if (command == NULL) {
+        return SGP30_E_NULL_DATA_PTR;
     }
     return dev->write(dev->i2c_addr_write, command, data_len, dev->intf_ptr);
 }
@@ -299,10 +327,14 @@ int8_t sgp30_trx(
     uint32_t command_len,
     uint32_t data_len)
 {
-    if ((sgp30_null_ptr_check(dev) == SGP30_E_NULL_PTR) || (data == NULL)) {
-        return SGP30_E_NULL_PTR;
+    int8_t status = null_ptr_check(dev);
+    if (status != SGP30_OK) {
+        return status;
     }
-    int8_t status = sgp30_write(dev, data, command_len);
+    if (data == NULL) {
+        return SGP30_E_NULL_DATA_PTR;
+    }
+    status = sgp30_write(dev, data, command_len);
     if (status != SGP30_OK) {
         return status;
     }
@@ -310,7 +342,7 @@ int8_t sgp30_trx(
     memset(data, 0, data_len);
 
     // 0.5ms delay
-    sgp30_delay_us(dev, 1000000);
+    delay_us(dev, 1000000);
     status = sgp30_read(dev, data, data_len);
     return status;
 }
@@ -329,8 +361,9 @@ int8_t sgp30_trx(
  */
 int8_t sgp30_read_chip_id(Sgp30Dev *dev)
 {
-    if (sgp30_null_ptr_check(dev) == SGP30_E_NULL_PTR) {
-        return SGP30_E_NULL_PTR;
+    int8_t status = null_ptr_check(dev);
+    if (status != SGP30_OK) {
+        return status;
     }
 
     // response is [msb, lsb, crc, msb, lsb, crc, msb, lsb, crc]
@@ -375,8 +408,9 @@ int8_t sgp30_read_chip_id(Sgp30Dev *dev)
  */
 uint64_t sgp30_chip_id(Sgp30Dev *dev)
 {
-    if (sgp30_null_ptr_check(dev) == SGP30_E_NULL_PTR) {
-        return SGP30_E_NULL_PTR;
+    int8_t status = null_ptr_check(dev);
+    if (status != SGP30_OK) {
+        return (uint64_t)status;
     }
     return dev->chip_id;
 }
@@ -396,8 +430,9 @@ uint64_t sgp30_chip_id(Sgp30Dev *dev)
  */
 int8_t sgp30_measure_test(Sgp30Dev *dev)
 {
-    if (sgp30_null_ptr_check(dev) == SGP30_E_NULL_PTR) {
-        return SGP30_E_NULL_PTR;
+    int8_t status = null_ptr_check(dev);
+    if (status != SGP30_OK) {
+        return status;
     }
     uint8_t data[2] = {0};
     uint8_t resp[3] = {0};
@@ -405,7 +440,7 @@ int8_t sgp30_measure_test(Sgp30Dev *dev)
     data[1] = (uint8_t)(SGP30_MEASURE_TEST_CMD & 0x00FF);
 
     sgp30_write(dev, data, SGP30_MEASURE_TEST_CMD_LEN);
-    sgp30_delay_us(dev, SGP30_MEASURE_TEST_MAX_MS);
+    delay_us(dev, SGP30_MEASURE_TEST_MAX_MS);
     sgp30_read(dev, resp, SGP30_MEASURE_TEST_RESP_LEN);
 
     uint8_t test_byte0 = (uint8_t)((SGP30_MEASURE_TEST_PASS_VAL & 0xFF00) >> 8);
@@ -430,15 +465,16 @@ int8_t sgp30_measure_test(Sgp30Dev *dev)
 */
 int8_t sgp30_get_baseline(Sgp30Dev *dev, uint8_t *data)
 {
-    if (sgp30_null_ptr_check(dev) == SGP30_E_NULL_PTR) {
-        return SGP30_E_NULL_PTR;
+    int8_t status = null_ptr_check(dev);
+    if (status != SGP30_OK) {
+        return status;
     }
     data[0] = SGP30_GET_BASELINE_CMD_BYTE_1;
     data[1] = SGP30_GET_BASELINE_CMD_BYTE_2;
     if(sgp30_write(dev, data, SGP30_GET_BASELINE_CMD_LEN) < 0) {
         return SGP30_E_WRITE;
     }
-    sgp30_delay_us(dev, 500);
+    delay_us(dev, 500);
     if(sgp30_read_double_word(dev, data) < 0) {
         return SGP30_E_READ;
     }
@@ -457,8 +493,9 @@ int8_t sgp30_get_baseline(Sgp30Dev *dev, uint8_t *data)
 */
 int8_t sgp30_measure_air_quality(Sgp30Dev *dev, Sgp30DevReadings *readings)
 {
-    if ((sgp30_null_ptr_check(dev) == SGP30_E_NULL_PTR) || (readings == NULL)) {
-        return SGP30_E_NULL_PTR;
+    int8_t status = null_ptr_check(dev);
+    if (status != SGP30_OK) {
+        return status;
     }
     uint8_t data[6] = {0};
 
@@ -505,17 +542,18 @@ int8_t sgp30_measure_air_quality(Sgp30Dev *dev, Sgp30DevReadings *readings)
  * @retval 0 on success
  * @retval < 0 on failure
 */
-uint8_t sgp30_soft_reset(Sgp30Dev *dev)
+int8_t sgp30_soft_reset(Sgp30Dev *dev)
 {
-    if(sgp30_null_ptr_check(dev) == SGP30_E_NULL_PTR) {
-        return SGP30_E_NULL_PTR;
+    int8_t status = null_ptr_check(dev);
+    if (status != SGP30_OK) {
+        return status;
     }
     uint8_t data[2] = { 0 };
     data[0] = (uint8_t)((SGP30_SOFT_REST_CMD_GEN_CALL_ADDR & 0xFF00) >> 8);
     data[1] = (uint8_t)((SGP30_SOFT_REST_CMD_GEN_CALL_ADDR) & 0x00FF);
-    uint8_t status = sgp30_write(dev,
-                                 data,
-                                 SGP30_SOFT_REST_CMD_GEN_CALL_ADDR_LEN);
+    status = sgp30_write(dev,
+                         data,
+                         SGP30_SOFT_REST_CMD_GEN_CALL_ADDR_LEN);
     return status;
 }
 
@@ -558,19 +596,21 @@ uint8_t sgp30_generate_crc(uint8_t *data, uint8_t datalen)
  *********************/
 
 /* check for NULLs. Not a thorough check */
-static int8_t sgp30_null_ptr_check(const Sgp30Dev *dev)
+static int8_t null_ptr_check(const Sgp30Dev *dev)
 {
-    uint8_t rslt = SGP30_OK;
-    if ((dev == NULL) || (dev->read == NULL) || (dev->write == NULL) || (dev->delay_us == NULL)) {
-        rslt = SGP30_E_NULL_PTR;
+    if (dev == NULL) {
+        return SGP30_E_NULL_PTR;
     }
-    return rslt;
+    if ((dev->read == NULL) || (dev->write == NULL) || (dev->delay_us == NULL)) {
+        return SGP30_E_NULL_FPTR;
+    }
+    return SGP30_OK;
 }
 
 /* Internal API function to delay for period useconds */
-static int8_t sgp30_delay_us(Sgp30Dev *dev, uint32_t period)
+static int8_t delay_us(Sgp30Dev *dev, uint32_t period)
 {
-    if (sgp30_null_ptr_check(dev) == SGP30_E_NULL_PTR) {
+    if (null_ptr_check(dev) == SGP30_E_NULL_PTR) {
         return SGP30_E_NULL_PTR;
     }
     dev->delay_us(period, dev);
