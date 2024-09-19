@@ -71,7 +71,7 @@ Sgp30Dev* sgp30_alloc(void);
  * @retval 0 on success
  * @retval < 0 on failure
  */
-uint8_t sgp30_set_read_fptr(Sgp30Dev* dev, sgp30_read_fptr_t fptr);
+int8_t sgp30_set_read_fptr(Sgp30Dev* dev, sgp30_read_fptr_t fptr);
 
 /**
  * @brief Set device write function pointer
@@ -83,7 +83,7 @@ uint8_t sgp30_set_read_fptr(Sgp30Dev* dev, sgp30_read_fptr_t fptr);
  * @retval 0 on success
  * @retval < 0 on failure
  */
-uint8_t sgp30_set_write_fptr(Sgp30Dev* dev, sgp30_write_fptr_t fptr);
+int8_t sgp30_set_write_fptr(Sgp30Dev* dev, sgp30_write_fptr_t fptr);
 
 /** 
  * @brief Set device delay (in us) function pointer
@@ -95,7 +95,7 @@ uint8_t sgp30_set_write_fptr(Sgp30Dev* dev, sgp30_write_fptr_t fptr);
  * @retval 0 on success
  * @retval < 0 on failure
  */
-uint8_t sgp30_set_delay_us_fptr(Sgp30Dev* dev, sgp30_delay_us_fptr_t fptr);
+int8_t sgp30_set_delay_us_fptr(Sgp30Dev* dev, sgp30_delay_us_fptr_t fptr);
 
 /**
  * @brief Initialize Sgp30 instance.
@@ -108,7 +108,7 @@ uint8_t sgp30_set_delay_us_fptr(Sgp30Dev* dev, sgp30_delay_us_fptr_t fptr);
  * @retval 0 on success
  * @retval < 0 on failure
  */
-uint8_t sgp30_init(Sgp30Dev* dev);
+int8_t sgp30_init(Sgp30Dev* dev);
 
 /**
  * @brief Free a Sgp30 instance.
@@ -117,7 +117,7 @@ uint8_t sgp30_init(Sgp30Dev* dev);
  *
  * @return Void.
  */
-void sgp30_free(Sgp30Dev* dev);
+void sgp30_free(Sgp30Dev** dev);
 
 /**
  * @brief Read data from Sgp30 instance using I2C.
@@ -273,7 +273,7 @@ int8_t sgp30_measure_air_quality(Sgp30Dev* dev, Sgp30DevReadings* readings);
  * @retval 0 on success
  * @retval < 0 on failure
 */
-uint8_t sgp30_soft_reset(Sgp30Dev* dev);
+int8_t sgp30_soft_reset(Sgp30Dev* dev);
 
 /**
  * @brief Generate CRC checksum for given data.
