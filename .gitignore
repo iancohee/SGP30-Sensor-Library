@@ -4,3 +4,4 @@
 *.a
 *.o
 *.so
+tests/run_tests

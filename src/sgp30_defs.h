@@ -47,6 +47,10 @@
 #ifndef __SGP30_DEFS_HEADER__
 #define __SGP30_DEFS_HEADER__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifdef __KERNEL__
 #include <linux/types.h>
 #include <linux/kernel.h>
@@ -299,5 +303,9 @@ typedef struct sgp30_readings {
     /* TVOC reading from co2_tvoc */
     uint16_t tvoc;
 } Sgp30DevReadings;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // __SGP30_DEFS_HEADER__

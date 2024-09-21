@@ -163,12 +163,12 @@ int8_t sgp30_init(Sgp30Dev *dev)
 
     // chip takes a max. of 0.6ms to start after power up
     delay_us(dev, 600);
-    if(sgp30_read_chip_id(dev) < 0) {
-        return SGP30_E_DEV_NOT_FOUND;
+    if((status = sgp30_read_chip_id(dev)) != SGP30_OK) {
+        return status;
     }
 
-    if(sgp30_measure_test(dev) < 0) {
-        return SGP30_E_SELF_TEST;
+    if((status = sgp30_measure_test(dev)) != SGP30_OK) {
+        return status;
     }
 
     uint8_t data[2];
@@ -342,7 +342,7 @@ int8_t sgp30_trx(
     memset(data, 0, data_len);
 
     // 0.5ms delay
-    delay_us(dev, 1000000);
+    delay_us(dev, 500);
     status = sgp30_read(dev, data, data_len);
     return status;
 }
@@ -434,8 +434,8 @@ int8_t sgp30_measure_test(Sgp30Dev *dev)
     if (status != SGP30_OK) {
         return status;
     }
-    uint8_t data[2] = {0};
-    uint8_t resp[3] = {0};
+    uint8_t data[2] = { 0 };
+    uint8_t resp[3] = { 0 };
     data[0] = (uint8_t)((SGP30_MEASURE_TEST_CMD & 0xFF00) >> 8);
     data[1] = (uint8_t)(SGP30_MEASURE_TEST_CMD & 0x00FF);
 
@@ -446,10 +446,10 @@ int8_t sgp30_measure_test(Sgp30Dev *dev)
     uint8_t test_byte0 = (uint8_t)((SGP30_MEASURE_TEST_PASS_VAL & 0xFF00) >> 8);
     uint8_t test_byte1 = (uint8_t)(SGP30_MEASURE_TEST_PASS_VAL & 0x00FF);
 
-    if(resp[0] != test_byte0 || resp[1] != test_byte1) {
+    if ((resp[0] != test_byte0) || (resp[1] != test_byte1)) {
         return SGP30_E_SELF_TEST;
     }
-    if(resp[2] != sgp30_generate_crc(resp, SGP30_WORD_LEN)) {
+    if (resp[2] != sgp30_generate_crc(resp, SGP30_WORD_LEN)) {
         return SGP30_E_CRC_1;
     }
     return SGP30_OK;
