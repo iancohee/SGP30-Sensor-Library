@@ -110,7 +110,7 @@ Initiate a read test
 status = sgp30_measure_test(dev);
 ```
 
-Initiate a measure test, and *check the return code*.
+Initiate a measure test, and **check the return code**.
 
 #### Step Five
 
@@ -122,7 +122,7 @@ Initialize the sensor. Setup is complete.
 
 ### Step Five
 
-The main function, `loop()``
+The main function, `loop()`
 
 ```c
 void loop() {
@@ -151,6 +151,63 @@ void loop() {
 3. wait 1 second!
 
 The readings must be done in a frequency of 1Hz to maintain calibration (calibration settings support coming soon).
+
+### Step Six: The read/write/delay function defs
+
+```c
+SGP30_INTF_RET_TYPE device_read(uint8_t reg, uint8_t* data, uint32_t data_len, void* intf_ptr)
+{
+  assert(intf_ptr != nullptr);
+  Sgp30Dev* dev = (Sgp30Dev*)intf_ptr;
+
+  Wire.requestFrom(reg, data_len);
+  uint32_t num_read = 0;
+  for (uint32_t i = 0; i < data_len; i++) {
+    data[i] = Wire.read();
+    num_read++;
+  }
+
+  if (num_read != data_len) {
+    Serial.println("failed to read correct number of bytes");
+    return SGP30_E_READ;
+  }
+
+  return SGP30_OK;
+}
+
+SGP30_INTF_RET_TYPE device_write(uint8_t reg, uint8_t* command, uint32_t data_len, void* intf_ptr)
+{
+  assert(command != nullptr);
+  assert(intf_ptr != nullptr);
+
+  Sgp30Dev* dev = (Sgp30Dev*)intf_ptr;
+
+  Wire.beginTransmission(reg);
+  for (uint32_t i = 0; i < data_len; i++) {
+    Wire.write((uint8_t)command[i]);
+  }
+  uint8_t status = Wire.endTransmission();
+  if (status != 0) {
+    Serial.print("failed to write: ");
+    Serial.println(status);
+    status = SGP30_E_WRITE;
+  }
+
+  return status;
+}
+
+void device_delay_us(uint32_t period, void* intf_ptr)
+{
+  (void)intf_ptr;
+
+  char out_buf[16] = { 0 };
+  period /= 1000;
+  if (period < 1) {
+    period = 1;
+  }
+  delay(period);
+}
+```
 
 ## Flipper Zero
 Coming soon

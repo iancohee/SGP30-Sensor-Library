@@ -18,7 +18,7 @@ SGP30_INTF_RET_TYPE dummy_write_success(uint8_t reg, const uint8_t* data, uint32
 /* write fails */
 SGP30_INTF_RET_TYPE dummy_write_error(uint8_t reg, const uint8_t* data, uint32_t data_len, void* intf_ptr);
 
-/** measure_test test */
+/** measure_test tests */
 /**
  * @brief This function should always return 0xD400, with correct crc, for testing sg30_measure_test
  */
