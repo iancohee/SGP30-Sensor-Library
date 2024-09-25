@@ -11,6 +11,7 @@ main(void)
 {
     int status = 0;
 
+    test_generate_crc();
     test_read_chip_id_null();
     test_null_ptr_check();
 
@@ -18,11 +19,15 @@ main(void)
     test_set_write_fptr_null_ptr();
 
     test_init_dev_null();
-    test_init_device_not_found();
+    test_init_dev_success();
 
     test_double_free();
 
+    test_measure_test_fail_crc();
+    test_measure_test_success();
+
     test_read();
+    test_write();
 
     if (status == 0) {
         printf("[SUCCESS] all tests complete\n");
@@ -79,6 +84,34 @@ SGP30_INTF_RET_TYPE dummy_write_error(uint8_t reg, const uint8_t* data, uint32_t
     return SGP30_E_WRITE;
 }
 
+SGP30_INTF_RET_TYPE read_measure_test_success(uint8_t reg, uint8_t* data, uint32_t data_len, void* intf_ptr)
+{
+    assert(data != NULL);
+    (void) reg;
+    (void) data_len;
+    (void) intf_ptr;
+
+    assert(data_len >= 3);
+    data[0] = 0xD4;
+    data[1] = 0x00;
+    data[2] = 0xC6;
+    return SGP30_OK;
+}
+
+SGP30_INTF_RET_TYPE dummy_read_measure_test_wrong_crc(uint8_t reg, uint8_t* data, uint32_t data_len, void* intf_ptr)
+{
+    assert(data != NULL);
+    (void) reg;
+    (void) data_len;
+    (void) intf_ptr;
+
+    assert(data_len >= 3);
+    data[0] = 0xD4;
+    data[1] = 0x00;
+    data[2] = 0xff;
+    return SGP30_OK;
+}
+
 /* dummy delay */
 void dummy_delay_us(uint32_t period, void* intf_ptr)
 {
@@ -91,6 +124,16 @@ void dummy_delay_us(uint32_t period, void* intf_ptr)
 /****************
  *    Tests
  ***************/
+
+void test_generate_crc(void)
+{
+    printf(DEBUG "test_generate_crc\n");
+    uint8_t data[2] = { 0xBE, 0xEF };
+    uint8_t test_byte = sgp30_generate_crc(data, 2);
+
+    // This output is specified in the datasheet
+    assert(test_byte == 0x92);
+}
 
 /* NULL Checks */
 void test_read_chip_id_null(void)
@@ -137,16 +180,21 @@ void test_init_dev_null(void)
     sgp30_free(&dev);
 }
 
-void test_init_device_not_found(void)
+void test_init_dev_success(void)
 {
     printf(DEBUG "test_init_device_not_found\n");
     Sgp30Dev* dev = sgp30_alloc();
-    sgp30_set_read_fptr(dev, dummy_read_success);
+    sgp30_set_read_fptr(dev, read_measure_test_success);
     sgp30_set_write_fptr(dev, dummy_write_success);
     sgp30_set_delay_us_fptr(dev, dummy_delay_us);
 
+    // _init calls _measure_test, 
+    // which will expect a read to return
+    // the value, 0xd400
+
     int8_t status = sgp30_init(dev);
-    assert(status == SGP30_E_DEV_NOT_FOUND);
+    printf(DEBUG "sgp30_init() -> %d\n", status);
+    assert(status == SGP30_OK);
     sgp30_free(&dev);
 }
 
@@ -163,6 +211,7 @@ void test_double_free(void)
 
 void test_read(void)
 {
+    printf(DEBUG "test_read\n");
     Sgp30Dev* dev = sgp30_alloc();
 
     sgp30_set_read_fptr(dev, dummy_read_success);
@@ -180,8 +229,39 @@ void test_read(void)
     sgp30_free(&dev);
 }
 
+void test_measure_test_fail_crc(void)
+{
+    printf(DEBUG "test_measure_test\n");
+    Sgp30Dev* dev = sgp30_alloc();
+
+    sgp30_set_read_fptr(dev, dummy_read_measure_test_wrong_crc);
+    sgp30_set_write_fptr(dev, dummy_write_success);
+    sgp30_set_delay_us_fptr(dev, dummy_delay_us);
+
+    int8_t status = sgp30_measure_test(dev);
+    assert(status == SGP30_E_CRC_1);
+
+    sgp30_free(&dev);
+}
+
+void test_measure_test_success(void)
+{
+    printf(DEBUG "test_measure_test\n");
+    Sgp30Dev* dev = sgp30_alloc();
+
+    sgp30_set_read_fptr(dev, read_measure_test_success);
+    sgp30_set_write_fptr(dev, dummy_write_success);
+    sgp30_set_delay_us_fptr(dev, dummy_delay_us);
+
+    int8_t status = sgp30_measure_test(dev);
+    assert(status == SGP30_OK);
+
+    sgp30_free(&dev);
+}
+
 void test_write(void)
 {
+    printf(DEBUG "test_write\n");
     Sgp30Dev* dev = sgp30_alloc();
 
     sgp30_set_read_fptr(dev, dummy_read_success);

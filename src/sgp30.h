@@ -98,6 +98,32 @@ int8_t sgp30_set_write_fptr(Sgp30Dev* dev, sgp30_write_fptr_t fptr);
 int8_t sgp30_set_delay_us_fptr(Sgp30Dev* dev, sgp30_delay_us_fptr_t fptr);
 
 /**
+ * @brief Set I2C read address
+ * 
+ * Default is as defined in the datasheet.
+ * 
+ * @param[in] addr_read : Byte address of the new read register
+ * 
+ * @return Success of setting register value
+ * @retval 0 on success
+ * @retval < 0 on failure
+ */
+int8_t sgp30_set_i2c_addr_read(Sgp30Dev* dev, uint8_t addr_read);
+
+/**
+ * @brief Set I2C write address
+ * 
+ * Default is as defined in the datasheet.
+ * 
+ * @param[in] addr_write : Byte address of the new read register
+ * 
+ * @return Success of setting register value
+ * @retval 0 on success
+ * @retval < 0 on failure
+ */
+int8_t sgp30_set_i2c_addr_write(Sgp30Dev* dev, uint8_t addr_write);
+
+/**
  * @brief Initialize Sgp30 instance.
  * 
  * Read Chip ID and initialize measurement data.
@@ -111,9 +137,9 @@ int8_t sgp30_set_delay_us_fptr(Sgp30Dev* dev, sgp30_delay_us_fptr_t fptr);
 int8_t sgp30_init(Sgp30Dev* dev);
 
 /**
- * @brief Free a Sgp30 instance.
+ * @brief Free a Sgp30dev instance.
  *
- * @param[in]  dev : Pointer to a Sgp30 instance
+ * @param[in]  dev : Pointer to a Sgp30Dev pointer
  *
  * @return Void.
  */
@@ -124,7 +150,7 @@ void sgp30_free(Sgp30Dev** dev);
  * 
  * CRC checksum is not calculated for bytes read.
  *
- * @param[in]   dev      : Pointer to a Sgp30 instance
+ * @param[in]   dev      : Pointer to a Sgp30Dev
  * @param[out]  data     : Pointer to byte array to read data into
  * @param[in]   data_len : Number of bytes to read
  *

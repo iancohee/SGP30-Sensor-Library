@@ -43,13 +43,9 @@
 
 #include "sgp30.h"
 
-#ifdef __KERNEL__
-#include <linux/string.h>
-#else
-#include <string.h>
-#endif
-
 #define TAG "sgp30"
+
+static const uint64_t default_chip_id = 0xbeefdead;
 
 /**
  * static declarations
@@ -75,6 +71,7 @@ Sgp30Dev* sgp30_alloc(void)
     dev->i2c_addr = SGP30_I2C_ADDR;
     dev->i2c_addr_read = SGP30_I2C_ADDR_READ;
     dev->i2c_addr_write = SGP30_I2C_ADDR_WRITE;
+    dev->chip_id = default_chip_id;
     return dev;
 }
 
@@ -145,6 +142,46 @@ int8_t sgp30_set_delay_us_fptr(Sgp30Dev *dev, sgp30_delay_us_fptr_t fptr)
 }
 
 /**
+ * @brief Set I2C read address
+ * 
+ * Default is as defined in the datasheet.
+ * 
+ * @param[in] addr_read : Byte address of the new read register
+ * 
+ * @return Success of setting register value
+ * @retval 0 on success
+ * @retval < 0 on failure
+ */
+int8_t sgp30_set_i2c_addr_read(Sgp30Dev* dev, uint8_t addr_read)
+{
+    if (dev == NULL) {
+        return SGP30_E_NULL_PTR;
+    }
+    dev->i2c_addr_read = addr_read;
+    return SGP30_OK;
+}
+
+/**
+ * @brief Set I2C write address
+ * 
+ * Default is as defined in the datasheet.
+ * 
+ * @param[in] addr_write : Byte address of the new read register
+ * 
+ * @return Success of setting register value
+ * @retval 0 on success
+ * @retval < 0 on failure
+ */
+int8_t sgp30_set_i2c_addr_write(Sgp30Dev* dev, uint8_t addr_write)
+{
+    if (dev == NULL) {
+        return SGP30_E_NULL_PTR;
+    }
+    dev->i2c_addr_write = addr_write;
+    return SGP30_OK;
+}
+
+/**
  * @brief Initialize Sgp30 instance.
  * Read Chip ID and initialize measurement data.
  * 
@@ -163,9 +200,6 @@ int8_t sgp30_init(Sgp30Dev *dev)
 
     // chip takes a max. of 0.6ms to start after power up
     delay_us(dev, 600);
-    if((status = sgp30_read_chip_id(dev)) != SGP30_OK) {
-        return status;
-    }
 
     if((status = sgp30_measure_test(dev)) != SGP30_OK) {
         return status;
@@ -339,10 +373,13 @@ int8_t sgp30_trx(
         return status;
     }
 
-    memset(data, 0, data_len);
+    // memset(data, 0, data_len);
+    for (uint32_t i = 0; i < data_len; i ++) {
+        data[i] = 0;
+    }
 
-    // 0.5ms delay
-    delay_us(dev, 500);
+    // 1.2ms delay
+    delay_us(dev, 12000);
     status = sgp30_read(dev, data, data_len);
     return status;
 }
@@ -370,7 +407,7 @@ int8_t sgp30_read_chip_id(Sgp30Dev *dev)
     uint8_t data[SGP30_GET_SERIAL_ID_RESP_LEN] = { 0 };
     data[0] = (uint8_t)((SPG30_GET_SERIAL_ID_CMD & 0xFF00) >> 8);
     data[1] = (uint8_t)(SPG30_GET_SERIAL_ID_CMD & 0x00FF);
-    if(sgp30_trx(
+    if (sgp30_trx(
            dev,
            data,
            SPG30_GET_SERIAL_ID_CMD_LEN,
@@ -378,22 +415,28 @@ int8_t sgp30_read_chip_id(Sgp30Dev *dev)
         return SGP30_E_TRX;
     }
     uint8_t crc = sgp30_generate_crc(&data[0], 2);
-    if(crc != data[2]) {
+    if (crc != data[2]) {
         return SGP30_E_CRC_1;
     }
     crc = sgp30_generate_crc(&data[3], 2);
-    if(crc != data[5]) {
+    if (crc != data[5]) {
         return SGP30_E_CRC_2;
     }
     crc = sgp30_generate_crc(&data[6], 2);
-    if(crc != data[8]) {
+    if (crc != data[8]) {
         return SGP30_E_CRC_3;
     }
     uint64_t new_chip_id = 0;
-    for(uint32_t i = 0; i < SGP30_GET_SERIAL_ID_RESP_LEN; ++i) {
-        if(i == 2 || i == 5 || i == 8) continue;
-        new_chip_id |= data[i];
-        new_chip_id <<= 8;
+    uint8_t j = 5;
+    for (uint8_t i = 0; i < SGP30_GET_SERIAL_ID_RESP_LEN; i++) {
+        if ((i == 2) || (i == 5) || (i == 8)) {
+            continue;
+        }
+        uint64_t mask = (uint64_t)data[i];
+        // shift left 'j' bytes, decrement j
+        mask <<= (8 * j--);
+        new_chip_id |= mask;
+
     }
     dev->chip_id = new_chip_id;
     return SGP30_OK;
@@ -440,7 +483,7 @@ int8_t sgp30_measure_test(Sgp30Dev *dev)
     data[1] = (uint8_t)(SGP30_MEASURE_TEST_CMD & 0x00FF);
 
     sgp30_write(dev, data, SGP30_MEASURE_TEST_CMD_LEN);
-    delay_us(dev, SGP30_MEASURE_TEST_MAX_MS);
+    delay_us(dev, (uint32_t)SGP30_MEASURE_TEST_MAX_MS * 1000);
     sgp30_read(dev, resp, SGP30_MEASURE_TEST_RESP_LEN);
 
     uint8_t test_byte0 = (uint8_t)((SGP30_MEASURE_TEST_PASS_VAL & 0xFF00) >> 8);
@@ -533,6 +576,7 @@ int8_t sgp30_measure_air_quality(Sgp30Dev *dev, Sgp30DevReadings *readings)
  * @brief Soft reset the chip.
  * 
  * I2C "General Call" is used to soft reset the chip.
+ * 
  * General Calls are seen by all devices on the I2C bus,
  * so this command may affect other devices.
  * 
